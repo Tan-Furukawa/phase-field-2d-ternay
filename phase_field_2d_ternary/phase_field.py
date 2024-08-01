@@ -10,8 +10,6 @@ from prepare_fft import prepare_fft
 import plot as myplt
 import save as mysave
 
-#%%
-
 
 class CDArray(cp.ndarray): ...
 
@@ -59,9 +57,6 @@ class PhaseField:
         self.k12: float = 8
 
         self.istep: int = 0
-
-        self.tmp: dict = {}
-
 
     def update(self) -> None:
         """update properties computed from the variables defined in __init__()."""
@@ -140,8 +135,12 @@ class PhaseField:
             self.con2k = cp.fft.fft2(self.con2)
             self.dfdcon2k = cp.fft.fft2(self.dfdcon2)
 
-            p1 = self.k2 * ((self.L12 + self.L13) * self.dfdcon1k - self.L12 * self.dfdcon2k)
-            p2 = self.k2 * ((self.L12 + self.L23) * self.dfdcon2k - self.L12 * self.dfdcon1k)
+            p1 = self.k2 * (
+                (self.L12 + self.L13) * self.dfdcon1k - self.L12 * self.dfdcon2k
+            )
+            p2 = self.k2 * (
+                (self.L12 + self.L23) * self.dfdcon2k - self.L12 * self.dfdcon1k
+            )
 
             a11 = -self.k4 * (self.L12 * self.k12 - self.k11 * (self.L12 + self.L13))
             a12 = -self.k4 * (self.L12 * self.k22 - self.k12 * (self.L12 + self.L13))
@@ -149,8 +148,8 @@ class PhaseField:
             a22 = -self.k4 * (self.L12 * self.k12 - self.k22 * (self.L12 + self.L23))
 
             d11 = 1 - self.dtime * a11
-            d12 = - self.dtime * a12
-            d21 = - self.dtime * a21
+            d12 = -self.dtime * a12
+            d21 = -self.dtime * a21
             d22 = 1 - self.dtime * a22
 
             denom = d11 * d22 - d12 * d21
@@ -158,14 +157,17 @@ class PhaseField:
             tmp1 = self.con1k
             tmp2 = self.con2k
 
-            self.con1k = (d22 * (tmp1 + self.dtime * p1) - d12 * (tmp2 + self.dtime * p2)) / denom
+            self.con1k = (
+                d22 * (tmp1 + self.dtime * p1) - d12 * (tmp2 + self.dtime * p2)
+            ) / denom
             self.con1 = np.real(cp.fft.ifft2(self.con1k))
 
-            self.con2k = (-d21 *(tmp1 + self.dtime * p1) + d11 * (tmp2 + self.dtime * p2)) / denom
+            self.con2k = (
+                -d21 * (tmp1 + self.dtime * p1) + d11 * (tmp2 + self.dtime * p2)
+            ) / denom
             self.con2 = np.real(cp.fft.ifft2(self.con2k))
 
             if (istep % self.nprint == 0) or (istep == 1):
-
                 # plt.imshow(cp.asnumpy(cp.abs(1 + a11 * self.con1k + a12 * self.con2k)))
                 # plt.colorbar()
                 # plt.show()
@@ -177,12 +179,14 @@ class PhaseField:
                 # となる。
                 con1_res = cp.asnumpy(self.con1.transpose())
                 con2_res = cp.asnumpy(self.con2.transpose())
-                con = np.array(list(zip(con1_res, con2_res)))
+                x_flat = con1_res.flatten()
+                y_flat = con2_res.flatten()
 
-                plt.imshow()
-                plt.colorbar()
+
+                col = np.array(myplt.assign_rgb_to_end_member_color(x_flat, y_flat))
+                res = col.reshape((con1_res.shape)+(4,))
+                plt.imshow(res)
                 plt.show()
-                print("-----------------------------")
                 # plt.savefig("test.pdf")
 
     def summary(self) -> None:
@@ -210,56 +214,7 @@ class PhaseField:
 
 
 if __name__ == "__main__":
-    phase_field = PhaseField(4, 4, 4, 0.333, 0.332)
+    phase_field = PhaseField(4, 4, 4, 0.4, 0.4)
     phase_field.start()
-
-
-# %%
-
-np.random.seed(1000)
-r = np.random.random((10, 10)) * 225
-g = np.random.random((10, 10)) * 225
-b = (1 - r - g) * 225
-b[b < 0] = 0
-
-z = np.stack([r, g, b], axis=2)
-z = np.array(z, dtype=np.int32)
-plt.imshow(z)
-plt.colorbar()
-
-#%%
-
-def plot_ternary(axis: tuple[str, str, str] = ("A", "B", "C"))->None:
-    plt.figure(figsize=(4,4))
-    plt.plot([0., 1., 0.5, 0.], [0., 0., np.sqrt(3.)/2, 0])
-    padding = 0.3
-    plt.xlim((0 - padding, 1 + padding))
-    plt.ylim((0 - padding, 1 + padding))
-    dtext = 0.07
-    text_args = {"va": "center", "ha": "center", "size":16}
-    plt.text(-dtext, -dtext, axis[0], **text_args)
-    plt.text(1 + dtext, -dtext, axis[1], **text_args)
-    plt.text(1./2., np.sqrt(3.)/2 + np.sqrt(2.) * dtext, axis[2], **text_args)
-
-
-def plot_ternary_color_map(x, y, **kwargs):
-    z = 1. - x - y
-    x_plot = y + 0.5 * z
-    y_plot = z * np.sqrt(3.) / 2
-    print(kwargs)
-    plt.scatter(x_plot, y_plot, **kwargs)
-
-
-plot_ternary()
-num = 10
-x = np.linspace(0., 1., num = num)
-y = np.zeros_like(x)
-col = np.stack([x, y, 1. - x - y], axis=1)
-col[col > 1]  = 1
-col[col < 0]  = 0
-col = [(c[0], c[1], c[2], 1.) for c in col]
-
-plot_ternary_color_map(x, y, c = col)
-
 
 # %%
