@@ -1,4 +1,4 @@
-from .phase_field import PhaseField
-from .plot import get_matrix_image
-__all__ = ['PhaseField', 'get_matrix_image']
+from .phase_field import PhaseField_2d_3c
+import matrix_plot_tools
+__all__ = ['PhaseField_2d_3c', 'matrix_plot_tools']
 

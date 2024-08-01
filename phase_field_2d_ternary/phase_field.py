@@ -7,14 +7,17 @@ import matplotlib.pyplot as plt
 from free_energy import get_free_energy
 from initial_distribution import make_initial_distribution
 from prepare_fft import prepare_fft
-import plot as myplt
+import phase_field_2d_ternary.matrix_plot_tools as myplt
 import save as mysave
+
+from error_check import ErrorCheck
+
 
 
 class CDArray(cp.ndarray): ...
 
 
-class PhaseField:
+class PhaseField_2d_3c:
     """2D phase field modeling of non elastic system"""
 
     def __init__(
@@ -118,10 +121,19 @@ class PhaseField:
         con2 = make_initial_distribution(self.Nx, self.Ny, self.c20, self.noise)
         self.con2 = cp.array(con2)
 
+
     def compute_phase_field(self) -> None:
         """compute main part of phase field."""
         for istep in range(1, self.nstep + 1):
             self.istep = istep
+
+            ErrorCheck.check_nan(self.con1, "self.con1")
+            ErrorCheck.check_nan(self.con2, "self.con2")
+
+            # print(np.any(cp.asnumpy(.isnun(self.con1)).flatten()))
+            if np.any(np.isnan((cp.asnumpy(self.con1)))):
+                raise ValueError("")
+            # print(self.con1)
 
             self.dfdcon1, self.dfdcon2, self.g = get_free_energy(
                 self.con1, self.con2, self.w12, self.w23, self.w13
@@ -182,9 +194,8 @@ class PhaseField:
                 x_flat = con1_res.flatten()
                 y_flat = con2_res.flatten()
 
-
                 col = np.array(myplt.assign_rgb_to_end_member_color(x_flat, y_flat))
-                res = col.reshape((con1_res.shape)+(4,))
+                res = col.reshape((con1_res.shape) + (4,))
                 plt.imshow(res)
                 plt.show()
                 # plt.savefig("test.pdf")
@@ -214,7 +225,8 @@ class PhaseField:
 
 
 if __name__ == "__main__":
-    phase_field = PhaseField(4, 4, 4, 0.4, 0.4)
+    phase_field = PhaseField_2d_3c(3, 3, 3, 0.5, 0.8)
+    phase_field.dtime = 0.01
     phase_field.start()
 
 # %%
