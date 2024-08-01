@@ -1,0 +1,9 @@
+__pycache__
+.mypy_cache
+phase_field_2d_ternary.egg-info
+phase_field_2d_ternary/__pycache__
+phase_field_2d_ternary/.mypy_cache
+phase_field_2d_ternary/tmp
+
+
+
