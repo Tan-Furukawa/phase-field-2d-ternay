@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 
 
 def make_initial_distribution(
-    Nx: int, Ny: int, c0: NDArray[np.float64] | float, noise: float
+    Nx: int, Ny: int, c0: NDArray[np.float64] | float, noise: float, seed:int = 123
 ) -> NDArray[np.float64]:
     """Returns new array of initial composition distribution. The each element is determined by Gaussian noise.
 
@@ -26,7 +26,7 @@ def make_initial_distribution(
 
     con = np.zeros((Nx, Ny))
 
-    rng = np.random.default_rng(seed=123)
+    rng = np.random.default_rng(seed=seed)
     con = c0 + noise * (0.5 - rng.random((Nx, Ny)))
     # np.random.seed(123)
     # con = c0 + noise * (0.5 - np.random.rand(Nx, Ny))

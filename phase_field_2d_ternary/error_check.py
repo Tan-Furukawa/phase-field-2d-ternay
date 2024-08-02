@@ -1,16 +1,13 @@
 import numpy as np
 import cupy as cp
-from typing import Any
-
 
 class CDArray(cp.ndarray): ...
-
 
 class ErrorCheck:
     def __init__(self) -> None: ...
 
     @staticmethod
-    def check_nan(mat: CDArray, variable_name: str) -> Any:
+    def check_nan(mat: CDArray, variable_name: str) -> None:
         if np.any(np.isnan((cp.asnumpy(mat)))):
             print(f"{variable_name} = ")
             print(mat)
