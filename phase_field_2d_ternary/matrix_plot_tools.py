@@ -6,6 +6,7 @@ from numpy.typing import NDArray
 from typing import Any, Callable
 import numpy as np
 from scipy.interpolate import griddata
+#%%
 
 
 def get_matrix_image(
@@ -42,8 +43,10 @@ def get_matrix_image(
         plt.colorbar()
         plt.show()
 
-def imshow3(x: NDArray, y: NDArray)->None:
+
+def imshow3(x: NDArray, y: NDArray) -> None:
     Ternary.imshow3(x, y)
+
 
 def plot_con_hist(con: NDArray) -> None:
     """plot composition histogram
@@ -59,6 +62,7 @@ def plot_con_hist(con: NDArray) -> None:
     con = con.reshape(1, -1)[0]
     plt.hist(con, bins=200)
     plt.show()
+
 
 class Ternary():
 
@@ -102,12 +106,14 @@ class Ternary():
         text_args: dict = {"va": "center", "ha": "center", "size": 16}
         plt.text(-dtext, -dtext, axis[0], **text_args)
         plt.text(1 + dtext, -dtext, axis[1], **text_args)
-        plt.text(1.0 / 2.0, np.sqrt(3.0) / 2 + np.sqrt(2.0) * dtext, axis[2], **text_args)
-
+        plt.text(
+            1.0 / 2.0, np.sqrt(3.0) / 2 + np.sqrt(2.0) * dtext, axis[2], **text_args
+        )
 
     @staticmethod
-    def convert_ternary_to_Cartesian_coordinate(x: NDArray, y: NDArray) -> tuple[NDArray, NDArray]:
-
+    def convert_ternary_to_Cartesian_coordinate(
+        x: NDArray, y: NDArray
+    ) -> tuple[NDArray, NDArray]:
         """
         Converts x + y + z = 1 coordinates to Cartesian coordinates.
 
@@ -123,7 +129,6 @@ class Ternary():
         y_plot = z * np.sqrt(3.0) / 2
         return x_plot, y_plot
 
-
     @staticmethod
     def plot_ternary_color_map(x: NDArray, y: NDArray, **kwargs: Any) -> None:
         """
@@ -136,7 +141,6 @@ class Ternary():
         """
         x_plot, y_plot = Ternary.convert_ternary_to_Cartesian_coordinate(x, y)
         plt.scatter(x_plot, y_plot, **kwargs)
-
 
     @staticmethod
     def generate_triangle_mesh(n: int) -> tuple[NDArray, NDArray]:
@@ -161,7 +165,6 @@ class Ternary():
         res_y = [n[1] for n in nodes]
 
         return np.array(res_x), np.array(res_y)
-
 
     @staticmethod
     def assign_rgb_to_end_member_color(
@@ -210,7 +213,6 @@ class Ternary():
         return [(t[i] * r[i], t[i] * g[i], t[i] * b[i], 1.0) for i in range(len(r))]
 
     @staticmethod
-
     def prepare_contour(
         X: NDArray, Y: NDArray, Z: NDArray, level: int
     ) -> contour.QuadContourSet:
@@ -251,7 +253,6 @@ class Ternary():
                 y_plot[y_plot < 0] = np.nan
                 plt.plot(x_plot, y_plot, c="black", lw=1)
 
-
     @staticmethod
     def imshow3(x: NDArray, y: NDArray) -> None:
         """
@@ -267,9 +268,10 @@ class Ternary():
         res = col.reshape((x.shape) + (4,))
         plt.imshow(res)
 
-
     @staticmethod
-    def plot_ternary_contour_and_color_map(func: Callable[[NDArray, NDArray], NDArray], contour_num: int) -> None:
+    def plot_ternary_contour_and_color_map(
+        func: Callable[[NDArray, NDArray], NDArray], contour_num: int
+    ) -> None:
         """
         Plots ternary contours and value map based on a given function.
 
@@ -319,11 +321,13 @@ if __name__ == "__main__":
 
     print("example 3")
 
+#%%
+    k = 10
     def wrapper(x: NDArray, y: NDArray) -> NDArray:
-        _, _, res = get_free_energy(cp.array(x), cp.array(y), 4, 4, 4)
+        _, _, res = get_free_energy(cp.array(x), cp.array(y), -0.1*k, -0.1*k, -1*k)
         return cp.asnumpy(res)
 
-    Ternary.plot_ternary_contour_and_color_map(wrapper, 100)
+    Ternary.plot_ternary_contour_and_color_map(wrapper, 10)
     plt.show()
 
-#%%
+# %%

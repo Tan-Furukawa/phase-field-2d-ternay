@@ -1,5 +1,7 @@
 # %%
 import cupy as cp
+
+
 class CDArray(cp.ndarray): ...
 
 
@@ -13,7 +15,7 @@ def get_free_energy(
         w (float): float, Margulus parameter divided by RT
 
     ## Returns:
-        tuple[CDArray, CDArray]: dg/dx, g where g is molar free energy, x is partial mole fraction.
+        tuple[CDArray, CDArray, CDArray]: dg/dx1, dg/dx2, g where g is molar free energy, x is partial mole fraction.
     """
     min_c = 0.001
     max_c = 0.999
@@ -51,6 +53,20 @@ def get_free_energy(
 
     return dfdcon1, dfdcon2, g
 
+
+def get_interfacial_energy(
+    con1: CDArray, con2: CDArray, k11: float, k22: float, k12: float
+) -> float:
+    grad1 = cp.gradient(con1)
+    grad2 = cp.gradient(con2)
+    g1 = cp.sum(grad1[0] ** 2 + grad1[1] ** 2)
+    g2 = cp.sum(grad2[0] ** 2 + grad2[1] ** 2)
+    g12 = cp.sum(grad1[0] * grad1[0] + grad2[1] * grad2[1])
+    return k11/2. * g1 + k22 * g2 + k12/2. * g12
+
+
+import numpy as np
+# np.gradient([[1,2],[2,3]])
 
 if __name__ == "__main__":
     ...

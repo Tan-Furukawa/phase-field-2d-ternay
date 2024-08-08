@@ -2,19 +2,24 @@
 import cupy as cp
 import numpy as np
 from numpy.typing import NDArray
+from typing import NewType
 import matplotlib.pyplot as plt
-from yaml import dump
-
-from free_energy import get_free_energy
-from initial_distribution import make_initial_distribution
-from prepare_fft import prepare_fft
+from phase_field_2d_ternary.free_energy import get_free_energy, get_interfacial_energy
+from phase_field_2d_ternary.initial_distribution import make_initial_distribution
+from phase_field_2d_ternary.prepare_fft import prepare_fft
 import phase_field_2d_ternary.matrix_plot_tools as mplt
-import save as mysave
-
-from error_check import ErrorCheck
+import phase_field_2d_ternary.save as mysave
+from phase_field_2d_ternary.error_check import (
+    check_nan,
+    in_development,
+    is_within_range,
+)
 
 
 class CDArray(cp.ndarray): ...
+
+
+# CDArray = NewType("CDArray", cp_ndarray)
 
 
 class PhaseField2d3c:
@@ -52,7 +57,7 @@ class PhaseField2d3c:
         istep (int): Current simulation step (default: 0).
 
         energy_g (NDArray[np.float64]): Array to store free energy values at each step.
-        energy_el (NDArray[np.float64]): Array to store elastic energy values at each step.
+        energy_int (NDArray[np.float64]): Array to store interfacial energy values at each step.
         con1 (CDArray): Composition array for component 1.
         con2 (CDArray): Composition array for component 2.
         con1k (CDArray): Fourier-transformed composition array for component 1.
@@ -69,8 +74,16 @@ class PhaseField2d3c:
         w12: float,
         w13: float,
         w23: float,
-        c10: float,
-        c20: float,
+        k11: float = 8,
+        k22: float = 8,
+        k12: float = 4,
+        c10: float = 0.333333,
+        c20: float = 0.333333,
+        L12: float = -1.0,
+        L13: float = -1.0,
+        L23: float = -1.0,
+        record: bool = False,
+        stop_if_error: bool = True,
     ) -> None:
         """
         Args:
@@ -92,21 +105,33 @@ class PhaseField2d3c:
         self.dy: float = 1.0
         self.nstep: int = 100000
         self.nprint: int = 1000
-        self.dtime: float = 1e-2
+        self.nsave: int = 1000
+        self.dtime: float = 0.003
         self.ttime: float = 0.0
         self.noise: float = 0.1
         # self.noise: float = 0.1
 
-        self.L12: float = -1.0
-        self.L13: float = -1.0
-        self.L23: float = -1.0
+        self.L12: float = L12
+        self.L13: float = L13
+        self.L23: float = L23
 
-        self.k11: float = 8
-        self.k22: float = 8
-        self.k12: float = 4
+        self.k11: float = k11
+        self.k22: float = k22
+        self.k12: float = k12
 
+        self.stop_if_error = stop_if_error
+        self.w12 = w12
+        self.w13 = w13
+        self.w23 = w23
+        self.c10 = c10
+        self.c20 = c20
         self.istep: int = 0
         self.contour_level: int = 100
+        self.record = record
+        self.dir_name = mysave.make_dir_name()
+        if self.record:
+            mysave.create_directory("result")
+            mysave.create_directory(f"result/{self.dir_name}")
 
     def update(self) -> None:
         """update properties computed from the variables defined in __init__()."""
@@ -122,7 +147,7 @@ class PhaseField2d3c:
     def prepare_result_array(self) -> None:
         """prepare the computation result matrix and array."""
         self.energy_g = np.zeros(self.nstep) + np.nan
-        self.energy_el = np.zeros(self.nstep) + np.nan
+        self.energy_int = np.zeros(self.nstep) + np.nan
 
         self.con1: CDArray = cp.zeros((self.Nx, self.Ny))
         self.con2: CDArray = cp.zeros((self.Nx, self.Ny))
@@ -170,6 +195,7 @@ class PhaseField2d3c:
 
     # developing
     # 初期分布に適当な不均一性を与える
+    @in_development
     def set_initial_heterogenesis_composition(self) -> None:
         d = 5
         Nx, Ny = self.con1.shape
@@ -177,13 +203,57 @@ class PhaseField2d3c:
             int(Nx / 2) - d : int(Nx / 2) + d, int(Ny / 2) - d : int(Ny / 2) + d
         ] = 0.5
 
+    # for check something
+    def check(self)->bool:
+        return True
+
+    def when_save(self)->None:
+        if self.record:
+            self.save(make_directory=False)
+
+    def when_print(self)->None:
+        print(f"step: {self.istep}")
+        # plt.imshow(cp.asnumpy(cp.abs(1 + a11 * self.con1k + a12 * self.con2k)))
+        # plt.colorbar()
+        # plt.show()
+        # plt.imshow(con_disp)の図の向きは、
+        # y
+        # ↑
+        # |
+        # + --→ x [100]
+        # となる。
+        con1_res = cp.asnumpy(self.con1.transpose())
+        con2_res = cp.asnumpy(self.con2.transpose())
+        mplt.Ternary.imshow3(con1_res, con2_res)
+        plt.show()
+
+        self.plot_ternary_contour_and_composition(con1_res, con2_res)
+        plt.show()
+
+        # x_flat = con1_res.flatten()
+        # y_flat = con2_res.flatten()
+        # col = np.array(mplt.assign_rgb_to_end_member_color(x_flat, y_flat))
+        # res = col.reshape((con1_res.shape) + (4,))
+        # plt.imshow(res)
+        # plt.savefig("test.pdf")
+
     def compute_phase_field(self) -> None:
         """compute main part of phase field."""
         for istep in range(1, self.nstep + 1):
             self.istep = istep
 
-            ErrorCheck.check_nan(self.con1, "self.con1")
-            ErrorCheck.check_nan(self.con2, "self.con2")
+            if not self.check():
+                break
+
+            check_nan(self.con1, "self.con1")
+            check_nan(self.con2, "self.con2")
+            if self.stop_if_error:
+                if not is_within_range(self.con1, (0, 1)):
+                    raise ValueError("self.con1 is not within 0 to 1")
+                if not is_within_range(self.con2, (0, 1)):
+                    raise ValueError("self.con2 is not within 0 to 1")
+                if not is_within_range(-self.con1 - self.con2 + 1, (0, 1)):
+                    raise ValueError("1 - self.con1 - self.con2 0 to 1")
 
             # print(np.any(cp.asnumpy(.isnun(self.con1)).flatten()))
             if np.any(np.isnan((cp.asnumpy(self.con1)))):
@@ -195,6 +265,9 @@ class PhaseField2d3c:
             )
 
             self.energy_g[istep - 1] = cp.sum(self.g)
+            self.energy_int[istep - 1] = get_interfacial_energy(
+                self.con1, self.con2, self.k11, self.k22, self.k12
+            )
 
             self.con1k = cp.fft.fft2(self.con1)
             self.dfdcon1k = cp.fft.fft2(self.dfdcon1)
@@ -234,30 +307,11 @@ class PhaseField2d3c:
             ) / denom
             self.con2 = np.real(cp.fft.ifft2(self.con2k))
 
+            if (istep % self.nsave == 0) or (istep == 1):
+                self.when_save()
+
             if (istep % self.nprint == 0) or (istep == 1):
-                # plt.imshow(cp.asnumpy(cp.abs(1 + a11 * self.con1k + a12 * self.con2k)))
-                # plt.colorbar()
-                # plt.show()
-                # plt.imshow(con_disp)の図の向きは、
-                # y
-                # ↑
-                # |
-                # + --→ x [100]
-                # となる。
-                con1_res = cp.asnumpy(self.con1.transpose())
-                con2_res = cp.asnumpy(self.con2.transpose())
-                mplt.Ternary.imshow3(con1_res, con2_res)
-                plt.show()
-
-                self.plot_ternary_contour_and_composition(con1_res, con2_res)
-                plt.show()
-
-                # x_flat = con1_res.flatten()
-                # y_flat = con2_res.flatten()
-                # col = np.array(mplt.assign_rgb_to_end_member_color(x_flat, y_flat))
-                # res = col.reshape((con1_res.shape) + (4,))
-                # plt.imshow(res)
-                # plt.savefig("test.pdf")
+                self.when_print()
 
     def plot_ternary_contour_and_composition(
         self, con1: NDArray, con2: NDArray
@@ -295,36 +349,38 @@ class PhaseField2d3c:
         mplt.plot_con_hist(con1)
         plt.show()
 
-    def save(self) -> None:
-        mysave.create_directory("result")
-        dirname = mysave.make_dir_name()
-        mysave.create_directory(f"result/{dirname}")
+    def save(self, make_directory: bool = True) -> None:
+        if make_directory:
+            mysave.create_directory("result")
+            mysave.create_directory(f"result/{self.dir_name}")
+
         np.save(
-            f"result/{dirname}/con1_{int(self.istep*self.dtime)}.npy",
+            f"result/{self.dir_name}/con1_{int(self.istep)}.npy",
             self.con1,
         )
         np.save(
-            f"result/{dirname}/con2_{int(self.istep*self.dtime)}.npy",
-            self.con1,
+            f"result/{self.dir_name}/con2_{int(self.istep)}.npy",
+            self.con2,
         )
         instance_dict = mysave.instance_to_dict(
             self,
-            ["w12", "w13", "w23", "c10", "c20", "Nx", "Ny", "dx",
-              "dy", "nstep", "nprint", "dtime", "ttime", "noise", "L12",
-              "L13", "L23", "k11", "k22", "k12", "istep",],
+            [ "w12", "w13", "w23", "c10", "c20", "Nx",
+                "Ny", "dx", "dy", "nstep", "nprint", "dtime", "ttime",
+                "noise", "L12", "L13", "L23", "k11", "k22", "k12",
+                "istep", ],
         )
-        yaml_str = dump(instance_dict)
-        mysave.save_str(f"result/{dirname}/test.yaml", yaml_str)
+        yaml_str = mysave.dump(instance_dict)
+        mysave.save_str(f"result/{self.dir_name}/test.yaml", yaml_str)
 
 
 if __name__ == "__main__":
     # c01の値によりめっちゃびんかんにかわる
-    phase_field = PhaseField2d3c(4, 4, 4, 0.33333, 0.33333)
-    phase_field.dtime = 0.01
+    phase_field = PhaseField2d3c(4, 4, 4, 0.33333, 0.33333, True)
+    phase_field.dtime = 0.005
     phase_field.start()
-    phase_field.summary()
+    # phase_field.summary()
 
     # %%
-    phase_field.save()
+    # phase_field.save()
 
 # %%
