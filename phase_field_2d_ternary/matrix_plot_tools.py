@@ -8,7 +8,6 @@ import numpy as np
 from scipy.interpolate import griddata
 #%%
 
-
 def get_matrix_image(
     mat: NDArray,
     vmin: float = 0,
@@ -322,12 +321,41 @@ if __name__ == "__main__":
     print("example 3")
 
 #%%
-    k = 10
+    k = 0.1
     def wrapper(x: NDArray, y: NDArray) -> NDArray:
         _, _, res = get_free_energy(cp.array(x), cp.array(y), -0.1*k, -0.1*k, -1*k)
         return cp.asnumpy(res)
 
-    Ternary.plot_ternary_contour_and_color_map(wrapper, 10)
+    Ternary.plot_ternary_contour_and_color_map(wrapper, 30)
     plt.show()
 
-# %%
+# #%%
+# c1 = np.linspace(0.001, 0.999, 100)
+# c2 = np.linspace(0.001, 0.999, 100)
+# c1, c2 = np.meshgrid(c1, c2)
+
+# _, _, g_ = get_free_energy(cp.array(c1), cp.array(c2), -0.1, -0.1, -10)
+# g = cp.asnumpy(g_)
+
+# dg_dx = np.gradient(g, axis=1)
+# dg_dy = np.gradient(g, axis=0)
+
+# d2z_dx2 = np.gradient(dg_dx, axis=1)
+# d2z_dy2 = np.gradient(dg_dy, axis=0)
+# d2z_dxdy = np.gradient(dg_dx, axis=0)
+
+# # plt.imshow(cp.asnumpy(g))
+# # np.gradient(g)
+# z = d2z_dx2 * d2z_dy2 - d2z_dxdy * d2z_dxdy
+# r = 10
+# Nx, Ny = z.shape
+# c1 = c1.flatten()
+# c2 = c2.flatten()
+# z = z.flatten()
+# c2[c1 + c2 >= 0.99] = np.nan
+# zz = z
+# zz[z > 0] = 1
+# zz[z <= 0] = -1
+# plt.scatter(c1,c2,c=zz, s=4)
+# plt.colorbar()
+# # %%

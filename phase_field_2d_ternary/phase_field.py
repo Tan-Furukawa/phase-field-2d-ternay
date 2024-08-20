@@ -129,9 +129,10 @@ class PhaseField2d3c:
         self.contour_level: int = 100
         self.record = record
         self.dir_name = mysave.make_dir_name()
+        self.save_dir_name = "result"
         if self.record:
-            mysave.create_directory("result")
-            mysave.create_directory(f"result/{self.dir_name}")
+            mysave.create_directory(self.save_dir_name)
+            mysave.create_directory(f"{self.save_dir_name}/{self.dir_name}")
 
     def update(self) -> None:
         """update properties computed from the variables defined in __init__()."""
@@ -351,15 +352,15 @@ class PhaseField2d3c:
 
     def save(self, make_directory: bool = True) -> None:
         if make_directory:
-            mysave.create_directory("result")
-            mysave.create_directory(f"result/{self.dir_name}")
+            mysave.create_directory(self.save_dir_name)
+            mysave.create_directory(f"{self.save_dir_name}/{self.dir_name}")
 
         np.save(
-            f"result/{self.dir_name}/con1_{int(self.istep)}.npy",
+            f"{self.save_dir_name}/{self.dir_name}/con1_{int(self.istep)}.npy",
             self.con1,
         )
         np.save(
-            f"result/{self.dir_name}/con2_{int(self.istep)}.npy",
+            f"{self.save_dir_name}/{self.dir_name}/con2_{int(self.istep)}.npy",
             self.con2,
         )
         instance_dict = mysave.instance_to_dict(
@@ -370,13 +371,16 @@ class PhaseField2d3c:
                 "istep", ],
         )
         yaml_str = mysave.dump(instance_dict)
-        mysave.save_str(f"result/{self.dir_name}/test.yaml", yaml_str)
+        mysave.save_str(f"{self.save_dir_name}/{self.dir_name}/test.yaml", yaml_str)
 
 
 if __name__ == "__main__":
     # c01の値によりめっちゃびんかんにかわる
-    phase_field = PhaseField2d3c(4, 4, 4, 0.33333, 0.33333, True)
-    phase_field.dtime = 0.005
+    phase_field = PhaseField2d3c(10, 10, 1, c10=0.1, c20=0.45)
+    phase_field.dtime = 0.00001
+    phase_field.contour_level = 10
+    phase_field.noise = 0.01
+    phase_field.nprint = 1000
     phase_field.start()
     # phase_field.summary()
 
