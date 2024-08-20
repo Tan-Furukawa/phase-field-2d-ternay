@@ -84,6 +84,7 @@ class PhaseField2d3c:
         L23: float = -1.0,
         record: bool = False,
         stop_if_error: bool = True,
+        save_dir_name: str = "result"
     ) -> None:
         """
         Args:
@@ -129,7 +130,7 @@ class PhaseField2d3c:
         self.contour_level: int = 100
         self.record = record
         self.dir_name = mysave.make_dir_name()
-        self.save_dir_name = "result"
+        self.save_dir_name = save_dir_name
         if self.record:
             mysave.create_directory(self.save_dir_name)
             mysave.create_directory(f"{self.save_dir_name}/{self.dir_name}")
